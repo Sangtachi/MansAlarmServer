@@ -1,0 +1,16 @@
+{
+  "name": "mans-alarm-server",
+  "private": true,
+  "workspaces": [
+    "apps/admin-web"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace admin-web",
+    "build:admin": "npm run build --workspace admin-web",
+    "lint:admin": "npm run lint --workspace admin-web",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:reset": "npx supabase db reset",
+    "supabase:push": "npx supabase db push"
+  }
+}
