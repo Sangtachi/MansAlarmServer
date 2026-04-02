@@ -76,7 +76,7 @@ export default function LoginPage() {
 
         {!hasSupabaseEnv() ? (
           <div className="inline-banner inline-banner-warning">
-            `apps/admin-web/.env.local`에 Supabase URL과 anon key를 먼저 넣어야 합니다.
+            `.env.local`에 Supabase URL과 anon key를 먼저 넣어야 합니다.
           </div>
         ) : null}
 

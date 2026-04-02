@@ -12,8 +12,11 @@
 
 ```text
 MansAlarmServer/
-  apps/
-    admin-web/
+  src/
+    app/
+    components/
+    lib/
+  public/
   supabase/
     migrations/
     seed.sql
@@ -23,13 +26,13 @@ MansAlarmServer/
 ## Local setup
 
 1. Create a Supabase project.
-2. Copy `apps/admin-web/.env.example` to `apps/admin-web/.env.local`.
+2. Copy `.env.example` to `.env.local`.
 3. Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 4. Run the admin app:
 
 ```bash
 cd /Users/wh.choi/Desktop/Code/MansAlarmServer
-npm run dev:admin
+npm run dev
 ```
 
 5. To use the local Supabase stack:
@@ -42,9 +45,9 @@ npm run supabase:reset
 
 ## Deployment
 
-- Deploy `apps/admin-web` to Vercel.
+- Deploy the repository root to Vercel.
 - Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel.
-- Point Vercel's project root to `apps/admin-web`.
+- Root Directory is no longer needed because the Next.js app lives at the repository root.
 
 ## Admin bootstrap
 
