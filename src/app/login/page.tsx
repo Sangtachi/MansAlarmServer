@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { AdminPromoteSqlPanel } from '@/components/AdminPromoteSqlPanel';
 import { hasSupabaseEnv } from '@/lib/env';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 
@@ -13,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [promoteEmail, setPromoteEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -21,6 +24,7 @@ export default function LoginPage() {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
+        setPromoteEmail(null);
         return;
       }
 
@@ -32,7 +36,11 @@ export default function LoginPage() {
 
       if (profile?.role === 'admin') {
         router.replace('/content');
+        return;
       }
+
+      setPromoteEmail(data.session.user.email ?? '');
+      setMessage('로그인된 계정은 관리자가 아닙니다. SQL로 role을 admin으로 올린 뒤 새로고침하세요.');
     }).catch(() => undefined);
   }, [router, supabase]);
 
@@ -49,8 +57,9 @@ export default function LoginPage() {
 
     setBusy(true);
     setMessage(null);
+    setPromoteEmail(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -59,6 +68,29 @@ export default function LoginPage() {
 
     if (error) {
       setMessage(error.message);
+      return;
+    }
+
+    const uid = signInData.user?.id;
+    if (!uid) {
+      setMessage('로그인 응답에 사용자 정보가 없습니다.');
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (profileError) {
+      setMessage(profileError.message);
+      return;
+    }
+
+    if (profile?.role !== 'admin') {
+      setPromoteEmail(signInData.user.email ?? email.trim());
+      setMessage('로그인은 되었지만 관리자 권한이 없습니다. 아래 SQL을 실행한 뒤 다시 시도하세요.');
       return;
     }
 
@@ -102,14 +134,23 @@ export default function LoginPage() {
           />
         </label>
 
-        {message ? <div className="inline-banner">{message}</div> : null}
+        {message ? <div className="inline-banner inline-banner-warning">{message}</div> : null}
+
+        {promoteEmail ? <AdminPromoteSqlPanel email={promoteEmail} /> : null}
 
         <button type="button" className="primary-button" onClick={handleLogin} disabled={busy}>
           {busy ? '로그인 중...' : '관리자 로그인'}
         </button>
 
         <p className="login-footnote">
-          Supabase Auth에 계정을 만든 뒤, `profiles.role = admin`으로 올려야 접근이 가능합니다.
+          계정이 없으면 먼저 등록한 뒤, SQL로 <code className="inline-code">profiles.role</code>을{' '}
+          <code className="inline-code">admin</code>으로 올려 주세요.
+        </p>
+
+        <p className="login-nav">
+          <Link href="/register" className="login-nav-link">
+            운영 계정 회원 등록
+          </Link>
         </p>
       </div>
     </div>
