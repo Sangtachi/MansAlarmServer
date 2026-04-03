@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { AdminPromoteSqlPanel } from '@/components/AdminPromoteSqlPanel';
 import { hasSupabaseEnv } from '@/lib/env';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
+
+const FORBIDDEN_MSG = '관리자만 이용할 수 있습니다.';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,7 +15,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [promoteEmail, setPromoteEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -24,7 +23,6 @@ export default function LoginPage() {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
-        setPromoteEmail(null);
         return;
       }
 
@@ -39,8 +37,8 @@ export default function LoginPage() {
         return;
       }
 
-      setPromoteEmail(data.session.user.email ?? '');
-      setMessage('로그인된 계정은 관리자가 아닙니다. SQL로 role을 admin으로 올린 뒤 새로고침하세요.');
+      await supabase.auth.signOut();
+      setMessage(FORBIDDEN_MSG);
     }).catch(() => undefined);
   }, [router, supabase]);
 
@@ -57,7 +55,6 @@ export default function LoginPage() {
 
     setBusy(true);
     setMessage(null);
-    setPromoteEmail(null);
 
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -85,12 +82,13 @@ export default function LoginPage() {
 
     if (profileError) {
       setMessage(profileError.message);
+      await supabase.auth.signOut();
       return;
     }
 
     if (profile?.role !== 'admin') {
-      setPromoteEmail(signInData.user.email ?? email.trim());
-      setMessage('로그인은 되었지만 관리자 권한이 없습니다. 아래 SQL을 실행한 뒤 다시 시도하세요.');
+      await supabase.auth.signOut();
+      setMessage(FORBIDDEN_MSG);
       return;
     }
 
@@ -120,6 +118,7 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="admin@mensalarm.com"
+            autoComplete="username"
           />
         </label>
 
@@ -131,27 +130,15 @@ export default function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="비밀번호"
+            autoComplete="current-password"
           />
         </label>
 
         {message ? <div className="inline-banner inline-banner-warning">{message}</div> : null}
 
-        {promoteEmail ? <AdminPromoteSqlPanel email={promoteEmail} /> : null}
-
         <button type="button" className="primary-button" onClick={handleLogin} disabled={busy}>
           {busy ? '로그인 중...' : '관리자 로그인'}
         </button>
-
-        <p className="login-footnote">
-          계정이 없으면 먼저 등록한 뒤, SQL로 <code className="inline-code">profiles.role</code>을{' '}
-          <code className="inline-code">admin</code>으로 올려 주세요.
-        </p>
-
-        <p className="login-nav">
-          <Link href="/register" className="login-nav-link">
-            운영 계정 회원 등록
-          </Link>
-        </p>
       </div>
     </div>
   );
