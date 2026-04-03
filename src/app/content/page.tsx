@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminShell } from '@/components/AdminShell';
+import { compareYmd, tomorrowYmd } from '@/lib/dailyContentCalendar';
 import { useAdminSession } from '@/lib/admin';
+import { normalizeRewardUrl } from '@/lib/rewardUrl';
 import { DailyContentRow } from '@/lib/types';
 
 type ContentDraft = {
@@ -11,30 +13,46 @@ type ContentDraft = {
   phrase: string;
   subPhrase: string;
   description: string;
-  rewardTitle: string;
-  rewardArtist: string;
-  rewardVideoId: string;
-  isPublished: boolean;
+  rewardUrl: string;
 };
 
-const EMPTY_DRAFT: ContentDraft = {
-  contentDate: new Date().toISOString().slice(0, 10),
-  phrase: '',
-  subPhrase: '',
-  description: '',
-  rewardTitle: '',
-  rewardArtist: '',
-  rewardVideoId: '',
-  isPublished: false,
-};
+function getInitialDraft(): ContentDraft {
+  return {
+    contentDate: tomorrowYmd(),
+    phrase: '',
+    subPhrase: '',
+    description: '',
+    rewardUrl: '',
+  };
+}
+
+function displayRewardUrlForEdit(row: DailyContentRow): string {
+  const u = row.reward_url?.trim();
+  if (u) {
+    return u;
+  }
+  const vid = row.reward_video_id?.trim();
+  if (!vid) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(vid)) {
+    return vid;
+  }
+  return `https://www.youtube.com/watch?v=${vid}`;
+}
 
 export default function ContentPage() {
   const { supabase, state, signOut } = useAdminSession();
   const [rows, setRows] = useState<DailyContentRow[]>([]);
-  const [draft, setDraft] = useState<ContentDraft>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<ContentDraft>(getInitialDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const minSelectableYmd = tomorrowYmd();
+  const isLegacyContentDate = Boolean(
+    editingId && draft.contentDate && compareYmd(draft.contentDate, minSelectableYmd) < 0,
+  );
 
   const loadRows = useCallback(async () => {
     if (!supabase || state.status !== 'ready') {
@@ -64,10 +82,7 @@ export default function ContentPage() {
   }, [loadRows]);
 
   const resetDraft = () => {
-    setDraft({
-      ...EMPTY_DRAFT,
-      contentDate: new Date().toISOString().slice(0, 10),
-    });
+    setDraft(getInitialDraft());
     setEditingId(null);
   };
 
@@ -78,10 +93,7 @@ export default function ContentPage() {
       phrase: row.phrase,
       subPhrase: row.sub_phrase,
       description: row.description,
-      rewardTitle: row.reward_title ?? '',
-      rewardArtist: row.reward_artist ?? '',
-      rewardVideoId: row.reward_video_id ?? '',
-      isPublished: row.is_published,
+      rewardUrl: displayRewardUrlForEdit(row),
     });
     setMessage(null);
   };
@@ -96,30 +108,35 @@ export default function ContentPage() {
       return;
     }
 
-    const hasAnyRewardField = Boolean(
-      draft.rewardTitle.trim() || draft.rewardArtist.trim() || draft.rewardVideoId.trim()
-    );
-    const hasCompleteReward = Boolean(
-      draft.rewardTitle.trim() && draft.rewardArtist.trim() && draft.rewardVideoId.trim()
-    );
-
-    if (hasAnyRewardField && !hasCompleteReward) {
-      setMessage('남자의 노래는 제목, 아티스트, 유튜브 영상 ID를 함께 채워야 합니다.');
+    if (!isLegacyContentDate && compareYmd(draft.contentDate, minSelectableYmd) < 0) {
+      setMessage('날짜는 내일(' + minSelectableYmd + ') 이후만 선택할 수 있습니다.');
       return;
+    }
+
+    const rewardRaw = draft.rewardUrl.trim();
+    if (rewardRaw) {
+      const normalized = normalizeRewardUrl(rewardRaw);
+      if (!normalized) {
+        setMessage('보상 링크는 http:// 또는 https:// 로 시작하는 URL이어야 합니다.');
+        return;
+      }
     }
 
     setBusy(true);
     setMessage(null);
+
+    const normalizedReward = normalizeRewardUrl(draft.rewardUrl);
 
     const payload = {
       content_date: draft.contentDate,
       phrase: draft.phrase.trim(),
       sub_phrase: draft.subPhrase.trim(),
       description: draft.description.trim(),
-      reward_title: draft.rewardTitle.trim() || null,
-      reward_artist: draft.rewardArtist.trim() || null,
-      reward_video_id: draft.rewardVideoId.trim() || null,
-      is_published: draft.isPublished,
+      reward_url: normalizedReward,
+      reward_title: null,
+      reward_artist: null,
+      reward_video_id: null,
+      is_published: true,
     };
 
     const result = editingId
@@ -134,7 +151,7 @@ export default function ContentPage() {
     }
 
     resetDraft();
-    setMessage(editingId ? '오늘 문구를 수정했습니다.' : '오늘 문구를 등록했습니다.');
+    setMessage(editingId ? '문구를 수정했습니다.' : '문구를 등록했습니다.');
     await loadRows();
   };
 
@@ -160,12 +177,28 @@ export default function ContentPage() {
     await loadRows();
   };
 
-  const publishedCount = useMemo(() => rows.filter((row) => row.is_published).length, [rows]);
+  const rowCountLabel = useMemo(() => `${rows.length}건`, [rows.length]);
+
+  const listRewardLine = (row: DailyContentRow): string | null => {
+    const u = row.reward_url?.trim();
+    if (u) {
+      return u;
+    }
+    const vid = row.reward_video_id?.trim();
+    if (!vid) {
+      return null;
+    }
+    if (/^https?:\/\//i.test(vid)) {
+      return vid;
+    }
+    const legacyTitle = [row.reward_title, row.reward_artist].filter(Boolean).join(' · ');
+    return legacyTitle ? `${legacyTitle} — https://www.youtube.com/watch?v=${vid}` : `https://www.youtube.com/watch?v=${vid}`;
+  };
 
   return (
     <AdminShell
       title="오늘 문구 운영"
-      description="날짜별 메인 문구, 서브 문구, 설명, 당일 유튜브를 저장하고 게시 여부를 제어합니다."
+      description="날짜별 메인·서브 문구와 설명을 저장합니다. 신규 등록은 항상 내일 이후 날짜·즉시 게시이며, 보상은 단일 URL로 연결합니다."
       currentPath="/content"
       sessionState={state}
       onLogout={() => signOut().catch(() => undefined)}
@@ -175,7 +208,7 @@ export default function ContentPage() {
           <div className="panel-header">
             <div>
               <p className="panel-kicker">DAILY COPY</p>
-              <h3 className="panel-title">{editingId ? '오늘 문구 수정' : '오늘 문구 등록'}</h3>
+              <h3 className="panel-title">{editingId ? '문구 수정' : '문구 등록'}</h3>
             </div>
             <button type="button" className="ghost-button" onClick={resetDraft}>
               초기화
@@ -183,14 +216,19 @@ export default function ContentPage() {
           </div>
 
           <div className="field-grid">
-            <label className="field-block">
-              <span className="field-label">DATE</span>
-              <input
-                className="field-input"
-                type="date"
-                value={draft.contentDate}
-                onChange={(event) => setDraft((current) => ({ ...current, contentDate: event.target.value }))}
-              />
+            <label className="field-block field-block-full">
+              <span className="field-label">DATE (신규는 내일 이후만)</span>
+              {isLegacyContentDate ? (
+                <p className="sql-panel-hint">{draft.contentDate} (과거 일정 — 날짜 변경 불가, 문구·설명·링크만 수정)</p>
+              ) : (
+                <input
+                  className="field-input"
+                  type="date"
+                  min={minSelectableYmd}
+                  value={draft.contentDate}
+                  onChange={(event) => setDraft((current) => ({ ...current, contentDate: event.target.value }))}
+                />
+              )}
             </label>
 
             <label className="field-block">
@@ -224,50 +262,21 @@ export default function ContentPage() {
               />
             </label>
 
-            <label className="field-block">
-              <span className="field-label">SONG TITLE</span>
-              <input
-                className="field-input"
-                value={draft.rewardTitle}
-                onChange={(event) => setDraft((current) => ({ ...current, rewardTitle: event.target.value }))}
-                placeholder="예: Remember the Name"
-              />
-            </label>
-
-            <label className="field-block">
-              <span className="field-label">SONG ARTIST</span>
-              <input
-                className="field-input"
-                value={draft.rewardArtist}
-                onChange={(event) => setDraft((current) => ({ ...current, rewardArtist: event.target.value }))}
-                placeholder="예: Fort Minor"
-              />
-            </label>
-
             <label className="field-block field-block-full">
-              <span className="field-label">YOUTUBE VIDEO ID</span>
+              <span className="field-label">보상 링크 (선택, https URL)</span>
               <input
                 className="field-input"
-                value={draft.rewardVideoId}
-                onChange={(event) => setDraft((current) => ({ ...current, rewardVideoId: event.target.value }))}
-                placeholder="예: VDvr08sCPOc"
+                value={draft.rewardUrl}
+                onChange={(event) => setDraft((current) => ({ ...current, rewardUrl: event.target.value }))}
+                placeholder="예: https://www.youtube.com/watch?v=..."
               />
-            </label>
-
-            <label className="toggle-row">
-              <input
-                type="checkbox"
-                checked={draft.isPublished}
-                onChange={(event) => setDraft((current) => ({ ...current, isPublished: event.target.checked }))}
-              />
-              <span>게시 상태로 저장</span>
             </label>
           </div>
 
           {message ? <div className="inline-banner">{message}</div> : null}
 
           <button type="button" className="primary-button" onClick={handleSave} disabled={busy}>
-            {busy ? '저장 중...' : editingId ? '이 문구로 갱신' : '오늘 문구 저장'}
+            {busy ? '저장 중...' : editingId ? '이 문구로 갱신' : '문구 저장 (게시)'}
           </button>
         </section>
 
@@ -277,7 +286,7 @@ export default function ContentPage() {
               <p className="panel-kicker">CALENDAR LIST</p>
               <h3 className="panel-title">등록된 날짜 문구</h3>
             </div>
-            <div className="metric-pill">{publishedCount} published</div>
+            <div className="metric-pill">{rowCountLabel}</div>
           </div>
 
           <div className="card-list">
@@ -295,11 +304,10 @@ export default function ContentPage() {
                 {row.sub_phrase ? <p className="list-card-meta">{row.sub_phrase}</p> : null}
                 <p className="list-card-body">{row.description}</p>
                 <p className="list-card-meta">정답 문구: {row.phrase}</p>
-                {row.reward_video_id ? (
-                  <p className="list-card-meta">
-                    남자의 노래: {[row.reward_title, row.reward_artist].filter(Boolean).join(' · ')} ({row.reward_video_id})
-                  </p>
-                ) : null}
+                {(() => {
+                  const reward = listRewardLine(row);
+                  return reward ? <p className="list-card-meta">보상 링크: {reward}</p> : null;
+                })()}
                 <div className="card-actions">
                   <button type="button" className="ghost-button" onClick={() => handleEdit(row)}>
                     수정

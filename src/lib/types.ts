@@ -4,6 +4,9 @@ export type DailyContentRow = {
   phrase: string;
   sub_phrase: string;
   description: string;
+  /** Open this URL after the user succeeds (mobile). */
+  reward_url: string | null;
+  /** Legacy; admin saves clear these. */
   reward_title: string | null;
   reward_artist: string | null;
   reward_video_id: string | null;
