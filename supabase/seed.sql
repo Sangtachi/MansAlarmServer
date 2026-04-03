@@ -1,11 +1,23 @@
-insert into public.daily_contents (content_date, headline, description, typing_target, is_published)
+insert into public.daily_contents (
+  content_date,
+  phrase,
+  sub_phrase,
+  description,
+  reward_title,
+  reward_artist,
+  reward_video_id,
+  is_published
+)
 values
-  ('2026-04-02', '행증자명', '행동이 스스로를 증명한다. 말이 아니라 행동과 결과로 자신을 증명한다.', '행증자명', true),
-  ('2026-04-03', '철심단련', '강한 몸은 하루아침에 오지 않는다. 반복과 절제가 몸을 만든다.', '철심단련', false)
+  ('2026-04-02', '행증자명', '行證自明', '행동을 증명해라. 말이 아니라 행동과 결과로 자신을 증명한다.', 'Remember the Name', 'Fort Minor', 'VDvr08sCPOc', true),
+  ('2026-04-03', '철심단련', '鐵心鍛鍊', '강한 몸은 하루아침에 오지 않는다. 반복과 절제가 몸을 만든다.', 'Eye of the Tiger', 'Survivor', 'btPJPFnesV4', false)
 on conflict (content_date) do update set
-  headline = excluded.headline,
+  phrase = excluded.phrase,
+  sub_phrase = excluded.sub_phrase,
   description = excluded.description,
-  typing_target = excluded.typing_target,
+  reward_title = excluded.reward_title,
+  reward_artist = excluded.reward_artist,
+  reward_video_id = excluded.reward_video_id,
   is_published = excluded.is_published;
 
 insert into public.product_categories (name, slug, sort_order, is_visible)

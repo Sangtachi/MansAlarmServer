@@ -8,17 +8,23 @@ import { DailyContentRow } from '@/lib/types';
 
 type ContentDraft = {
   contentDate: string;
-  headline: string;
+  phrase: string;
+  subPhrase: string;
   description: string;
-  typingTarget: string;
+  rewardTitle: string;
+  rewardArtist: string;
+  rewardVideoId: string;
   isPublished: boolean;
 };
 
 const EMPTY_DRAFT: ContentDraft = {
   contentDate: new Date().toISOString().slice(0, 10),
-  headline: '',
+  phrase: '',
+  subPhrase: '',
   description: '',
-  typingTarget: '',
+  rewardTitle: '',
+  rewardArtist: '',
+  rewardVideoId: '',
   isPublished: false,
 };
 
@@ -69,9 +75,12 @@ export default function ContentPage() {
     setEditingId(row.id);
     setDraft({
       contentDate: row.content_date,
-      headline: row.headline,
+      phrase: row.phrase,
+      subPhrase: row.sub_phrase,
       description: row.description,
-      typingTarget: row.typing_target,
+      rewardTitle: row.reward_title ?? '',
+      rewardArtist: row.reward_artist ?? '',
+      rewardVideoId: row.reward_video_id ?? '',
       isPublished: row.is_published,
     });
     setMessage(null);
@@ -82,8 +91,20 @@ export default function ContentPage() {
       return;
     }
 
-    if (!draft.contentDate || !draft.headline.trim() || !draft.description.trim() || !draft.typingTarget.trim()) {
-      setMessage('날짜, 큰 제목, 설명, 타이핑 기준 문구를 모두 채워야 합니다.');
+    if (!draft.contentDate || !draft.phrase.trim() || !draft.description.trim()) {
+      setMessage('날짜, 문구, 설명은 반드시 채워야 합니다.');
+      return;
+    }
+
+    const hasAnyRewardField = Boolean(
+      draft.rewardTitle.trim() || draft.rewardArtist.trim() || draft.rewardVideoId.trim()
+    );
+    const hasCompleteReward = Boolean(
+      draft.rewardTitle.trim() && draft.rewardArtist.trim() && draft.rewardVideoId.trim()
+    );
+
+    if (hasAnyRewardField && !hasCompleteReward) {
+      setMessage('남자의 노래는 제목, 아티스트, 유튜브 영상 ID를 함께 채워야 합니다.');
       return;
     }
 
@@ -92,9 +113,12 @@ export default function ContentPage() {
 
     const payload = {
       content_date: draft.contentDate,
-      headline: draft.headline.trim(),
+      phrase: draft.phrase.trim(),
+      sub_phrase: draft.subPhrase.trim(),
       description: draft.description.trim(),
-      typing_target: draft.typingTarget.trim(),
+      reward_title: draft.rewardTitle.trim() || null,
+      reward_artist: draft.rewardArtist.trim() || null,
+      reward_video_id: draft.rewardVideoId.trim() || null,
       is_published: draft.isPublished,
     };
 
@@ -141,7 +165,7 @@ export default function ContentPage() {
   return (
     <AdminShell
       title="오늘 문구 운영"
-      description="날짜별 큰 제목, 설명, 타이핑 기준 문구를 저장하고 게시 여부를 제어합니다."
+      description="날짜별 메인 문구, 서브 문구, 설명, 당일 유튜브를 저장하고 게시 여부를 제어합니다."
       currentPath="/content"
       sessionState={state}
       onLogout={() => signOut().catch(() => undefined)}
@@ -170,12 +194,22 @@ export default function ContentPage() {
             </label>
 
             <label className="field-block">
-              <span className="field-label">HEADLINE</span>
+              <span className="field-label">PHRASE</span>
               <input
                 className="field-input"
-                value={draft.headline}
-                onChange={(event) => setDraft((current) => ({ ...current, headline: event.target.value }))}
+                value={draft.phrase}
+                onChange={(event) => setDraft((current) => ({ ...current, phrase: event.target.value }))}
                 placeholder="예: 행증자명"
+              />
+            </label>
+
+            <label className="field-block field-block-full">
+              <span className="field-label">SUB PHRASE</span>
+              <input
+                className="field-input"
+                value={draft.subPhrase}
+                onChange={(event) => setDraft((current) => ({ ...current, subPhrase: event.target.value }))}
+                placeholder="예: 行證自明 / 행동을 증명해라"
               />
             </label>
 
@@ -190,13 +224,33 @@ export default function ContentPage() {
               />
             </label>
 
-            <label className="field-block field-block-full">
-              <span className="field-label">TYPING TARGET</span>
+            <label className="field-block">
+              <span className="field-label">SONG TITLE</span>
               <input
                 className="field-input"
-                value={draft.typingTarget}
-                onChange={(event) => setDraft((current) => ({ ...current, typingTarget: event.target.value }))}
-                placeholder="알람 해제용 정답 문구"
+                value={draft.rewardTitle}
+                onChange={(event) => setDraft((current) => ({ ...current, rewardTitle: event.target.value }))}
+                placeholder="예: Remember the Name"
+              />
+            </label>
+
+            <label className="field-block">
+              <span className="field-label">SONG ARTIST</span>
+              <input
+                className="field-input"
+                value={draft.rewardArtist}
+                onChange={(event) => setDraft((current) => ({ ...current, rewardArtist: event.target.value }))}
+                placeholder="예: Fort Minor"
+              />
+            </label>
+
+            <label className="field-block field-block-full">
+              <span className="field-label">YOUTUBE VIDEO ID</span>
+              <input
+                className="field-input"
+                value={draft.rewardVideoId}
+                onChange={(event) => setDraft((current) => ({ ...current, rewardVideoId: event.target.value }))}
+                placeholder="예: VDvr08sCPOc"
               />
             </label>
 
@@ -232,14 +286,20 @@ export default function ContentPage() {
                 <div className="list-card-top">
                   <div>
                     <p className="list-card-date">{row.content_date}</p>
-                    <h4 className="list-card-title">{row.headline}</h4>
+                    <h4 className="list-card-title">{row.phrase}</h4>
                   </div>
                   <span className={`status-pill ${row.is_published ? 'status-pill-live' : ''}`}>
                     {row.is_published ? '게시중' : '비공개'}
                   </span>
                 </div>
+                {row.sub_phrase ? <p className="list-card-meta">{row.sub_phrase}</p> : null}
                 <p className="list-card-body">{row.description}</p>
-                <p className="list-card-meta">정답 문구: {row.typing_target}</p>
+                <p className="list-card-meta">정답 문구: {row.phrase}</p>
+                {row.reward_video_id ? (
+                  <p className="list-card-meta">
+                    남자의 노래: {[row.reward_title, row.reward_artist].filter(Boolean).join(' · ')} ({row.reward_video_id})
+                  </p>
+                ) : null}
                 <div className="card-actions">
                   <button type="button" className="ghost-button" onClick={() => handleEdit(row)}>
                     수정

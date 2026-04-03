@@ -53,9 +53,12 @@ $$;
 create table if not exists public.daily_contents (
   id uuid primary key default gen_random_uuid(),
   content_date date not null unique,
-  headline text not null,
+  phrase text not null,
+  sub_phrase text not null default '',
   description text not null,
-  typing_target text not null,
+  reward_title text,
+  reward_artist text,
+  reward_video_id text,
   is_published boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())

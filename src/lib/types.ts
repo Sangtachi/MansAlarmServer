@@ -1,9 +1,12 @@
 export type DailyContentRow = {
   id: string;
   content_date: string;
-  headline: string;
+  phrase: string;
+  sub_phrase: string;
   description: string;
-  typing_target: string;
+  reward_title: string | null;
+  reward_artist: string | null;
+  reward_video_id: string | null;
   is_published: boolean;
   created_at: string;
   updated_at: string;
