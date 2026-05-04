@@ -15,7 +15,7 @@ type AdminShellProps = {
 };
 
 const NAV_ITEMS = [
-  { href: '/content', label: '오늘 문구' },
+  { href: '/content', label: '콘텐츠 파이프라인' },
   { href: '/members', label: '회원 리드' },
   { href: '/products', label: '상품 관리' },
 ] as const;
@@ -64,7 +64,7 @@ export function AdminShell({
           <p className="brand-kicker">MANSALARM SERVER</p>
           <h1 className="brand-title">BLACK / GOLD OPS</h1>
           <p className="brand-copy">
-            오늘 문구, 고객 리드, 남자의 상품을 한 화면에서 운영하는 관리자 웹입니다.
+            앱용 오늘 콘텐츠, 숏폼 렌더 큐, 고객 리드, 남자의 상품을 한 화면에서 운영하는 관리자 웹입니다.
           </p>
         </div>
 

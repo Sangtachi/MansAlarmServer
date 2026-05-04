@@ -332,6 +332,39 @@ select {
   white-space: nowrap;
 }
 
+button.status-pill {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.status-pill:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.health-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.health-chip,
+.job-pill {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 12px;
+  color: var(--soft);
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.health-chip-ok {
+  color: #111;
+  border-color: transparent;
+  background: linear-gradient(135deg, #f2dfc8 0%, #d7b48d 100%);
+}
+
 .status-pill-live {
   color: #111;
   background: linear-gradient(135deg, #f2dfc8 0%, #d7b48d 100%);
@@ -355,6 +388,191 @@ select {
   padding: 16px;
   display: grid;
   gap: 10px;
+}
+
+.pipeline-card {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(22, 22, 22, 0.94), rgba(10, 10, 10, 0.98));
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.pipeline-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pipeline-status-stack {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.meta-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.media-preview-shell {
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  aspect-ratio: 9 / 16;
+  max-height: 480px;
+}
+
+.media-preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.media-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--soft);
+  padding: 20px;
+}
+
+.job-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-bar {
+  display: grid;
+  gap: 12px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-chip {
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--soft);
+  padding: 0 16px;
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.filter-chip-active {
+  color: #111;
+  border-color: transparent;
+  background: linear-gradient(135deg, #f2dfc8 0%, #d7b48d 100%);
+}
+
+.filter-select {
+  min-width: 180px;
+}
+
+.toggle-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--text);
+}
+
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #d7b48d;
+}
+
+.event-timeline {
+  display: grid;
+  gap: 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+}
+
+.event-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-pill {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+  color: var(--text);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+}
+
+.event-time {
+  color: var(--soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.upload-row {
+  display: grid;
+  gap: 8px;
+}
+
+.upload-button {
+  position: relative;
+  min-height: 48px;
+  border-radius: 999px;
+  border: 1px dashed rgba(215, 180, 141, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  overflow: hidden;
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-hint {
+  color: var(--soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.card-actions-wrap {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.primary-button-small {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 20px;
 }
 
 .list-card-title {

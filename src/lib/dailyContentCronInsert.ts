@@ -1,0 +1,47 @@
+import type { GeneratedDailyContentDraft } from './contentGenerator';
+
+/** Same shape as admin `generate-upcoming` insert — draft-only, no social pipeline. */
+export function buildDailyContentInsertRow(
+  draft: GeneratedDailyContentDraft,
+  preferredSeasonId: string | null,
+) {
+  return {
+    content_date: draft.contentDate,
+    season_id: draft.season?.id ?? preferredSeasonId,
+    archetype: draft.archetype,
+    generator_provider: draft.generatorProvider,
+    phrase: draft.phrase,
+    sub_phrase: draft.subPhrase,
+    description: draft.description,
+    generation_prompt_draft: draft.generationPromptDraft,
+    generation_prompt_final: draft.generationPromptFinal,
+    drive_file_id: null,
+    drive_share_url: null,
+    app_playback_url: null,
+    app_publish_status: 'draft' as const,
+    reward_url: null,
+    reward_title: null,
+    reward_artist: null,
+    reward_video_id: null,
+    social_caption: draft.socialCaption,
+    publish_mode: draft.publishMode,
+    publish_at: draft.publishAt,
+    workflow_status: 'draft' as const,
+    is_published: false,
+    youtube_publish_status: 'pending' as const,
+    instagram_publish_status: 'pending' as const,
+    youtube_last_error: null,
+    instagram_last_error: null,
+    shortform_video_url: null,
+    poster_asset_path: null,
+    background_asset_path: null,
+    active_publish_request_id: null,
+    approved_at: null,
+    published_at: null,
+    youtube_video_id: null,
+    youtube_url: null,
+    instagram_media_id: null,
+    instagram_url: null,
+    last_error: null,
+  };
+}

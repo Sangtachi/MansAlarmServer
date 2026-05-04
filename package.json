@@ -6,6 +6,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "smoke:pipeline": "node scripts/pipeline-smoke.mjs",
+    "worker:start": "cd worker && npm run start",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:reset": "npx supabase db reset",
