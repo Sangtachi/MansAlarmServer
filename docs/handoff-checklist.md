@@ -57,7 +57,8 @@
 ## 5. 서버 먼저 복구
 
 ```bash
-cd /path/to/MansAlarmServer
+git clone https://github.com/Sangtachi/MansAlarmServer.git
+cd MansAlarmServer
 npm install
 ```
 
@@ -122,7 +123,8 @@ npm run lint
 ## 7. 모바일 복구
 
 ```bash
-cd /path/to/MansAlarm/apps/mobile
+git clone https://github.com/Sangtachi/MansAlarm.git
+cd MansAlarm/apps/mobile
 npm install
 ```
 

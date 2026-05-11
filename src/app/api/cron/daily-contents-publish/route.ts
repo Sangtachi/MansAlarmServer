@@ -12,7 +12,7 @@ async function runPublish() {
 
   const { data: existing, error: selectError } = await supabase
     .from('daily_contents')
-    .select('id, content_date, is_published')
+    .select('id, content_date, is_published, approved_at')
     .eq('content_date', today)
     .maybeSingle();
 
@@ -56,7 +56,14 @@ async function runPublish() {
 
   const { error: updateError } = await supabase
     .from('daily_contents')
-    .update({ is_published: true })
+    .update({
+      is_published: true,
+      app_publish_status: 'approved_live',
+      workflow_status: 'published',
+      approved_at: existing.approved_at ?? new Date().toISOString(),
+      published_at: new Date().toISOString(),
+      last_error: null,
+    })
     .eq('content_date', today);
 
   if (updateError) {

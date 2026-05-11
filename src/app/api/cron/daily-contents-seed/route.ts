@@ -1,107 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { addDaysToYmd, buildUpcomingDrafts, getKstTodayYmd } from '@/lib/contentGenerator';
-import { buildDailyContentInsertRow } from '@/lib/dailyContentCronInsert';
+import { getKstTodayYmd } from '@/lib/contentGenerator';
 import { requireCronSecret } from '@/lib/cronSecretAuth';
 import { getServiceRoleSupabase } from '@/lib/supabaseServiceRole';
-import { ContentSeasonRow } from '@/lib/types';
+import { ensureUpcomingContentDrafts } from '@/lib/upcomingContentBatch';
 
 export const dynamic = 'force-dynamic';
 
-async function runSeed() {
+const DEFAULT_SEED_DAYS = 7;
+
+function parseSeedDays(value: string | null) {
+  const parsed = Number.parseInt(value ?? process.env.DAILY_CONTENT_SEED_DAYS ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_SEED_DAYS;
+  }
+  return Math.min(30, parsed);
+}
+
+async function runSeed(request: NextRequest) {
   const supabase = getServiceRoleSupabase();
-  const D = getKstTodayYmd();
-  const startDate = addDaysToYmd(D, 1);
-  const targetDates = [startDate, addDaysToYmd(D, 2)];
-
-  const seasonsResult = await supabase.from('content_seasons').select('*').order('month_key', { ascending: false });
-  if (seasonsResult.error) {
-    return { ok: false as const, status: 500, error: seasonsResult.error.message };
-  }
-
-  const seasons = (seasonsResult.data ?? []) as ContentSeasonRow[];
-  if (seasons.length === 0) {
-    return {
-      ok: false as const,
-      status: 503,
-      error: 'content_seasons is empty; create a season before running the seed cron.',
-    };
-  }
-
-  const existingResult = await supabase
-    .from('daily_contents')
-    .select('content_date')
-    .in('content_date', targetDates);
-
-  if (existingResult.error) {
-    return { ok: false as const, status: 500, error: existingResult.error.message };
-  }
-
-  const existingSet = new Set((existingResult.data ?? []).map((row) => row.content_date));
-  const drafts = buildUpcomingDrafts({
+  const startDate = request.nextUrl.searchParams.get('startDate') || getKstTodayYmd();
+  const days = parseSeedDays(request.nextUrl.searchParams.get('days'));
+  const result = await ensureUpcomingContentDrafts(supabase, {
     startDate,
-    days: 2,
-    seasons,
+    days,
     preferredSeasonId: null,
     generatorProvider: 'veo',
     seedArchetype: null,
     publishMode: 'scheduled',
+    actorEmail: 'cron@mansalarm.system',
+    source: 'cron_daily_contents_seed',
   });
 
-  const toInsert = drafts.filter((draft) => !existingSet.has(draft.contentDate));
-  if (toInsert.length === 0) {
-    console.log(
-      JSON.stringify({
-        job: 'daily-contents-seed',
-        level: 'info',
-        message: 'all target dates already exist',
-        skippedDates: targetDates,
-        kstToday: D,
-      }),
-    );
-    return {
-      ok: true as const,
-      createdCount: 0,
-      skippedDates: targetDates,
-      targetDates,
-      kstToday: D,
-    };
-  }
-
-  const insertPayload = toInsert.map((draft) => buildDailyContentInsertRow(draft, null));
-  const insertResult = await supabase.from('daily_contents').insert(insertPayload).select('id, content_date');
-
-  if (insertResult.error) {
-    console.error(
-      JSON.stringify({
-        job: 'daily-contents-seed',
-        level: 'error',
-        step: 'insert',
-        message: insertResult.error.message,
-        code: insertResult.error.code,
-      }),
-    );
-    return { ok: false as const, status: 500, error: insertResult.error.message };
-  }
-
-  const inserted = insertResult.data ?? [];
   console.log(
     JSON.stringify({
       job: 'daily-contents-seed',
       level: 'info',
-      createdDates: inserted.map((r) => r.content_date),
-      kstToday: D,
+      createdDates: result.createdDates,
+      skippedDates: result.skippedDates,
+      reusedDates: result.reusedDates,
+      targetDates: result.targetDates,
+      startDate,
+      days,
+      generationBackend: result.generationBackend,
+      usedFallback: result.usedFallback,
+      fallbackReason: result.fallbackReason,
     }),
   );
 
-  return {
-    ok: true as const,
-    createdCount: inserted.length,
-    createdDates: inserted.map((r) => r.content_date),
-    skippedDates: targetDates.filter((d) => existingSet.has(d)),
-    targetDates,
-    kstToday: D,
-  };
+  return result;
 }
 
 export async function GET(request: NextRequest) {
@@ -111,10 +58,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await runSeed();
-    if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-    }
+    const result = await runSeed(request);
     return NextResponse.json(result);
   } catch (error) {
     console.error(

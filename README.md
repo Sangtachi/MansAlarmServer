@@ -70,7 +70,7 @@
 ## 빠른 실행
 
 ```bash
-cd /Users/wh.choi/Desktop/Code/MansAlarmServer
+cd MansAlarmServer
 npm install
 npm run dev
 ```
@@ -78,7 +78,7 @@ npm run dev
 검증용 명령:
 
 ```bash
-cd /Users/wh.choi/Desktop/Code/MansAlarmServer
+cd MansAlarmServer
 npm run build
 npm run lint
 npm run smoke:pipeline
@@ -87,7 +87,7 @@ npm run smoke:pipeline
 워커:
 
 ```bash
-cd /Users/wh.choi/Desktop/Code/MansAlarmServer
+cd MansAlarmServer
 npm run worker:start
 ```
 
@@ -133,7 +133,7 @@ OLLAMA_MODEL=your_ollama_model_name
 
 상세 매트릭스는 아래 문서를 봅니다.
 
-- `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/environment-matrix.md`
+- `./docs/environment-matrix.md`
 
 ## 배포 원칙
 
@@ -144,13 +144,13 @@ OLLAMA_MODEL=your_ollama_model_name
 
 ## 문서
 
-- 아키텍처: `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/architecture-overview.md`
-- Supabase 실행 순서: `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/supabase-runbook.md`
-- 콘텐츠 운영 순서: `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/content-pipeline-runbook.md`
-- 새 컴퓨터 이전 체크리스트: `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/handoff-checklist.md`
+- 아키텍처: `./docs/architecture-overview.md`
+- Supabase 실행 순서: `./docs/supabase-runbook.md`
+- 콘텐츠 운영 순서: `./docs/content-pipeline-runbook.md`
+- 새 컴퓨터 이전 체크리스트: `./docs/handoff-checklist.md`
 
 ## 지금 가장 먼저 봐야 할 문서
 
 컴퓨터를 바꾸거나 개발을 다시 이어야 하면 아래 문서부터 보면 됩니다.
 
-- `/Users/wh.choi/Desktop/Code/MansAlarmServer/docs/handoff-checklist.md`
+- `./docs/handoff-checklist.md`
