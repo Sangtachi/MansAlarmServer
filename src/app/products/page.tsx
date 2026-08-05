@@ -17,9 +17,12 @@ type ProductDraft = {
   categoryId: string;
   title: string;
   brand: string;
+  price: number;
   status: ProductRow['status'];
   summary: string;
   imageUrl: string;
+  isDigital: boolean;
+  outlinkUrl: string;
   sortOrder: number;
   isVisible: boolean;
 };
@@ -35,9 +38,12 @@ const EMPTY_PRODUCT: ProductDraft = {
   categoryId: '',
   title: '',
   brand: '',
+  price: 0,
   status: 'coming_soon',
   summary: '',
   imageUrl: '',
+  isDigital: false,
+  outlinkUrl: '',
   sortOrder: 0,
   isVisible: true,
 };
@@ -159,9 +165,12 @@ export default function ProductsPage() {
       category_id: productDraft.categoryId,
       title: productDraft.title.trim(),
       brand: productDraft.brand.trim(),
+      price: Number(productDraft.price) || 0,
       status: productDraft.status,
       summary: productDraft.summary.trim(),
       image_url: productDraft.imageUrl.trim() || null,
+      is_digital: productDraft.isDigital,
+      outlink_url: productDraft.outlinkUrl.trim() || null,
       sort_order: Number(productDraft.sortOrder) || 0,
       is_visible: productDraft.isVisible,
     };
@@ -411,6 +420,29 @@ export default function ProductsPage() {
             </label>
 
             <label className="field-block">
+              <span className="field-label">PRICE (원)</span>
+              <input
+                className="field-input"
+                type="number"
+                value={String(productDraft.price)}
+                onChange={(event) =>
+                  setProductDraft((current) => ({ ...current, price: Number(event.target.value) || 0 }))
+                }
+                placeholder="예: 29900"
+              />
+            </label>
+
+            <label className="field-block">
+              <span className="field-label">OUTLINK URL (외부 결제 링크)</span>
+              <input
+                className="field-input"
+                value={productDraft.outlinkUrl}
+                onChange={(event) => setProductDraft((current) => ({ ...current, outlinkUrl: event.target.value }))}
+                placeholder="https://smartstore.naver.com/..."
+              />
+            </label>
+
+            <label className="field-block">
               <span className="field-label">SORT ORDER</span>
               <input
                 className="field-input"
@@ -420,6 +452,17 @@ export default function ProductsPage() {
                   setProductDraft((current) => ({ ...current, sortOrder: Number(event.target.value) || 0 }))
                 }
               />
+            </label>
+
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={productDraft.isDigital}
+                onChange={(event) =>
+                  setProductDraft((current) => ({ ...current, isDigital: event.target.checked }))
+                }
+              />
+              <span>🎫 유형 B 디지털 재화 (인앱결제 모달 연동)</span>
             </label>
 
             <label className="toggle-row">
@@ -464,9 +507,12 @@ export default function ProductsPage() {
                         categoryId: product.category_id,
                         title: product.title,
                         brand: product.brand,
+                        price: product.price ?? 0,
                         status: product.status,
                         summary: product.summary,
                         imageUrl: product.image_url ?? '',
+                        isDigital: Boolean(product.is_digital),
+                        outlinkUrl: product.outlink_url ?? '',
                         sortOrder: product.sort_order,
                         isVisible: product.is_visible,
                       });

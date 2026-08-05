@@ -1,9 +1,20 @@
 import { randomUUID } from 'node:crypto';
 
+import { isInstagramConfigured, isYoutubeConfigured } from './config.mjs';
+import { publishToInstagram } from './connectors/instagram.mjs';
+import { publishToYoutube } from './connectors/youtube.mjs';
+import {
+  buildSocialCaption,
+  buildYoutubeTitle,
+  resolvePublicVideoUrl,
+} from './publishMedia.mjs';
 import { supabase } from './supabase.mjs';
 
-function connectorError(platform) {
-  return `${platform} publishing connector needs verified API credentials and upload flow wiring.`;
+function missingCredentialsError(platform) {
+  const hints = platform === 'youtube'
+    ? 'Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN, YOUTUBE_CHANNEL_ID in worker env.'
+    : 'Set INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_BUSINESS_ID in worker env.';
+  return `${platform} credentials are missing. ${hints} For local testing, set MANSALARM_MOCK_PUBLISH_SUCCESS=1 to bypass.`;
 }
 
 async function logContentEvent(dailyContentId, eventType, detail = {}) {
@@ -146,6 +157,41 @@ async function markPublishSuccess(job, remoteId, remoteUrl) {
   await summarizePublishRequest(job.daily_content_id, job.publish_request_id);
 }
 
+async function publishWithConnector(job, content) {
+  const videoUrl = resolvePublicVideoUrl(content);
+  if (!videoUrl) {
+    throw new Error(
+      'Playable public video URL is missing. Need shortform_video_url or app_playback_url (Drive-only assets are not supported for social upload).',
+    );
+  }
+
+  const caption = buildSocialCaption(content);
+  const title = buildYoutubeTitle(content);
+
+  if (job.platform === 'youtube') {
+    if (!isYoutubeConfigured()) {
+      throw new Error(missingCredentialsError('youtube'));
+    }
+    return publishToYoutube({
+      videoUrl,
+      title,
+      description: caption,
+    });
+  }
+
+  if (job.platform === 'instagram') {
+    if (!isInstagramConfigured()) {
+      throw new Error(missingCredentialsError('instagram'));
+    }
+    return publishToInstagram({
+      videoUrl,
+      caption,
+    });
+  }
+
+  throw new Error(`Unsupported publish platform: ${job.platform}`);
+}
+
 export async function enqueueScheduledPublication() {
   const nowIso = new Date().toISOString();
   const scheduledResult = await supabase
@@ -253,18 +299,12 @@ export async function processNextPublishJob() {
 
   const contentResult = await supabase
     .from('daily_contents')
-    .select('id, shortform_video_url, app_playback_url, drive_file_id, drive_share_url')
+    .select('id, phrase, sub_phrase, social_caption, shortform_video_url, app_playback_url, drive_file_id, drive_share_url')
     .eq('id', job.daily_content_id)
     .maybeSingle();
 
-  if (
-    contentResult.error
-    || (!contentResult.data?.shortform_video_url
-      && !contentResult.data?.app_playback_url
-      && !contentResult.data?.drive_file_id
-      && !contentResult.data?.drive_share_url)
-  ) {
-    await markPublishFailure(job, 'Playable asset is missing.');
+  if (contentResult.error || !contentResult.data) {
+    await markPublishFailure(job, contentResult.error?.message || 'Daily content row is missing.');
     return true;
   }
 
@@ -277,6 +317,15 @@ export async function processNextPublishJob() {
     return true;
   }
 
-  await markPublishFailure(job, connectorError(job.platform));
+  try {
+    const result = await publishWithConnector(job, contentResult.data);
+    await markPublishSuccess(job, result.remoteId, result.remoteUrl);
+  } catch (error) {
+    await markPublishFailure(
+      job,
+      error instanceof Error ? error.message : 'Social publish failed.',
+    );
+  }
+
   return true;
 }

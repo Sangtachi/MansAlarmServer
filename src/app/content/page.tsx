@@ -281,6 +281,8 @@ function getChangedDetailFields(row: DailyContentRow, draft: ContentDraft, norma
   return changes;
 }
 
+const ITEMS_PER_PAGE = 3;
+
 export default function ContentPage() {
   const { supabase, state, signOut } = useAdminSession();
   const actorEmail = state.status === 'ready' ? state.email : 'unknown@local';
@@ -301,6 +303,12 @@ export default function ContentPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [failedOnly, setFailedOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, dateFilter, failedOnly]);
 
   const todayYmd = formatLocalYmd(new Date());
   const minSelectableYmd = tomorrowYmd();
@@ -645,11 +653,17 @@ export default function ContentPage() {
     }
 
     setBusy(true);
+    
+    // 즉시 화면에서 제거 (Optimistic Update)
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
+
     const { error } = await supabase.from('daily_contents').delete().eq('id', row.id);
     setBusy(false);
 
     if (error) {
       setMessage(error.message);
+      // 에러 발생 시 원상복구
+      await loadRows();
       return;
     }
 
@@ -960,7 +974,11 @@ export default function ContentPage() {
     });
   }, [dateFilter, failedOnly, rows, statusFilter, todayYmd]);
 
-  const rowCountLabel = useMemo(() => `${filteredRows.length}/${rows.length}건`, [filteredRows.length, rows.length]);
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRows = filteredRows.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const rowCountLabel = useMemo(() => `PAGE ${currentPage}/${totalPages} (${filteredRows.length}/${rows.length}건)`, [currentPage, totalPages, filteredRows.length, rows.length]);
 
   return (
     <AdminShell
@@ -1315,7 +1333,7 @@ export default function ContentPage() {
           </div>
 
           <div className="card-list">
-            {filteredRows.map((row) => {
+            {paginatedRows.map((row) => {
               const backgroundUrl = buildStoragePublicUrl(row.background_asset_path);
               const posterUrl = buildStoragePublicUrl(row.poster_asset_path);
               const previewUrl = row.app_playback_url || row.shortform_video_url || backgroundUrl;
@@ -1550,6 +1568,30 @@ export default function ContentPage() {
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem', paddingBottom: '1rem' }}>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={currentPage === 1 || busy}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                이전 페이지
+              </button>
+              <span style={{ display: 'flex', alignItems: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={currentPage === totalPages || busy}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                다음 페이지
+              </button>
+            </div>
+          )}
         </section>
       </div>
     </AdminShell>

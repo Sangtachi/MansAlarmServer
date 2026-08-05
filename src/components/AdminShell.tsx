@@ -8,19 +8,26 @@ import { AdminSessionState } from '@/lib/types';
 type AdminShellProps = {
   title: string;
   description: string;
-  currentPath: '/content' | '/members' | '/products';
+  currentPath: '/manual' | '/content' | '/members' | '/products' | '/community';
   sessionState: AdminSessionState;
   onLogout: () => void;
   children: ReactNode;
 };
 
 const NAV_ITEMS = [
+  { href: '/manual', label: '수동 미션 관리' },
   { href: '/content', label: '콘텐츠 파이프라인' },
   { href: '/members', label: '회원 리드' },
   { href: '/products', label: '상품 관리' },
+  { href: '/community', label: '커뮤니티 관리' },
 ] as const;
 
-function renderStateMessage(state: AdminSessionState) {
+function renderStateMessage(state: AdminSessionState, currentPath: string) {
+  // 상품 및 커뮤니티 페이지는 일반 회원/방문자도 볼 수 있도록 허용
+  if (currentPath === '/products' || currentPath === '/community') {
+    return null;
+  }
+
   switch (state.status) {
     case 'loading':
       return {
@@ -55,7 +62,7 @@ export function AdminShell({
   onLogout,
   children,
 }: AdminShellProps) {
-  const stateMessage = sessionState.status === 'ready' ? null : renderStateMessage(sessionState);
+  const stateMessage = renderStateMessage(sessionState, currentPath);
 
   return (
     <div className="admin-shell">

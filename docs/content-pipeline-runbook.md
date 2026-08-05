@@ -176,9 +176,12 @@ Implemented now:
 Still pending:
 
 - Ollama prompt quality tuning and model selection
-- completed YouTube upload connector
-- completed Instagram Reels upload connector
 - Google Drive playback source against production credentials
+
+Social upload connectors (YouTube Data API + Instagram Reels Graph API) are implemented in the worker.
+They require the same `YOUTUBE_*` / `INSTAGRAM_*` credentials on the **worker** env.
+Without credentials, platform jobs fail with an explicit configuration error.
+Use `MANSALARM_MOCK_PUBLISH_SUCCESS=1` only for local smoke tests.
 
 ## Ollama local setup
 

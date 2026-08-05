@@ -20,7 +20,33 @@ export const config = {
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS || '12000'),
   ffmpegFontFile: resolveFontFile(),
   tmpRoot: process.env.TMPDIR || os.tmpdir(),
+  youtubeClientId: process.env.YOUTUBE_CLIENT_ID?.trim() || '',
+  youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET?.trim() || '',
+  youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN?.trim() || '',
+  youtubeChannelId: process.env.YOUTUBE_CHANNEL_ID?.trim() || '',
+  instagramAppId: process.env.INSTAGRAM_APP_ID?.trim() || '',
+  instagramAppSecret: process.env.INSTAGRAM_APP_SECRET?.trim() || '',
+  instagramAccessToken: process.env.INSTAGRAM_ACCESS_TOKEN?.trim() || '',
+  instagramBusinessId: process.env.INSTAGRAM_BUSINESS_ID?.trim() || '',
 };
+
+export function isYoutubeConfigured() {
+  return Boolean(
+    config.youtubeClientId
+    && config.youtubeClientSecret
+    && config.youtubeRefreshToken
+    && config.youtubeChannelId,
+  );
+}
+
+export function isInstagramConfigured() {
+  return Boolean(
+    config.instagramAppId
+    && config.instagramAppSecret
+    && config.instagramAccessToken
+    && config.instagramBusinessId,
+  );
+}
 
 export function buildPublicUrl(storagePath) {
   return `${config.supabaseUrl}/storage/v1/object/public/${config.bucket}/${storagePath}`;

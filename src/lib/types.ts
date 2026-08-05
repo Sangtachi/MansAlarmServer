@@ -170,9 +170,12 @@ export type ProductRow = {
   category_id: string;
   title: string;
   brand: string;
+  price?: number | null;
   status: 'coming_soon' | 'support_request';
   summary: string;
   image_url: string | null;
+  is_digital?: boolean | null;
+  outlink_url?: string | null;
   sort_order: number;
   is_visible: boolean;
   created_at?: string;

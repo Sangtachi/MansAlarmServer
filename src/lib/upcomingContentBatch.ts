@@ -1,16 +1,19 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   GENERATED_DRAFT_WINDOW_LIMIT,
   addDaysToYmd,
-  buildScheduledPublishAtIso,
   GeneratedDailyContentDraft,
 } from './contentGenerator';
 import { generateUpcomingDraftsWithProvider } from './contentGeneratorProvider';
-import { buildDefaultSocialCaption } from './contentPipeline';
 import { logContentEvent } from './contentOperations';
-import { buildPromptDraft } from './contentStudio';
 import { buildDailyContentInsertRow } from './dailyContentCronInsert';
+import {
+  buildReusedDraft,
+  findReusableContent,
+  resolveSeasonForDate,
+  ReusableContentRow,
+} from './upcomingContentShared';
 import {
   ContentArchetype,
   ContentSeasonRow,
@@ -18,20 +21,6 @@ import {
   GeneratorProvider,
   PublishMode,
 } from './types';
-
-type ReusableContentRow = Pick<
-  DailyContentRow,
-  | 'id'
-  | 'content_date'
-  | 'season_id'
-  | 'archetype'
-  | 'generator_provider'
-  | 'phrase'
-  | 'sub_phrase'
-  | 'description'
-  | 'reward_url'
-  | 'social_caption'
->;
 
 export type EnsureUpcomingContentParams = {
   startDate: string;
@@ -43,70 +32,6 @@ export type EnsureUpcomingContentParams = {
   actorEmail: string;
   source: string;
 };
-
-function resolveSeasonForDate(
-  contentDate: string,
-  seasons: ContentSeasonRow[],
-  preferredSeasonId: string | null,
-) {
-  const monthKey = contentDate.slice(0, 7);
-  const preferredSeason = preferredSeasonId
-    ? seasons.find((season) => season.id === preferredSeasonId) ?? null
-    : null;
-
-  if (preferredSeason?.month_key === monthKey) {
-    return preferredSeason;
-  }
-
-  return seasons.find((season) => season.month_key === monthKey && season.is_active)
-    ?? seasons.find((season) => season.month_key === monthKey)
-    ?? preferredSeason
-    ?? seasons.find((season) => season.is_active)
-    ?? seasons[0]
-    ?? null;
-}
-
-function findReusableContent(contentDate: string, reusableRows: ReusableContentRow[]) {
-  const monthDay = contentDate.slice(5);
-  return reusableRows.find((row) => row.content_date < contentDate && row.content_date.slice(5) === monthDay) ?? null;
-}
-
-function buildReusedDraft(params: {
-  contentDate: string;
-  source: ReusableContentRow;
-  season: ContentSeasonRow | null;
-  generatorProvider: GeneratorProvider;
-  seedArchetype: ContentArchetype | null;
-  publishMode: PublishMode;
-}): GeneratedDailyContentDraft {
-  const archetype = params.seedArchetype ?? params.source.archetype ?? 'knight';
-  const provider = params.source.generator_provider ?? params.generatorProvider;
-  const socialCaption = params.source.social_caption?.trim()
-    || buildDefaultSocialCaption(params.source.phrase, params.source.sub_phrase, params.source.description);
-  const promptDraft = buildPromptDraft({
-    season: params.season,
-    archetype,
-    provider,
-    phrase: params.source.phrase,
-    subPhrase: params.source.sub_phrase,
-    description: params.source.description,
-  });
-
-  return {
-    contentDate: params.contentDate,
-    season: params.season,
-    archetype,
-    generatorProvider: provider,
-    phrase: params.source.phrase,
-    subPhrase: params.source.sub_phrase,
-    description: params.source.description,
-    socialCaption,
-    generationPromptDraft: promptDraft,
-    generationPromptFinal: promptDraft,
-    publishMode: params.publishMode,
-    publishAt: params.publishMode === 'scheduled' ? buildScheduledPublishAtIso(params.contentDate) : null,
-  };
-}
 
 export async function ensureUpcomingContentDrafts(
   supabase: SupabaseClient,

@@ -1,6 +1,7 @@
 import { enqueueScheduledPublication, processNextPublishJob } from './publish.mjs';
 import { config } from './config.mjs';
 import { processNextRenderJob } from './render.mjs';
+import { processNextBackgroundGenerationJob } from './generate-background.mjs';
 
 const MAX_TICK_ITERATIONS = 24;
 
@@ -9,6 +10,11 @@ async function tick() {
     for (let iteration = 0; iteration < MAX_TICK_ITERATIONS; iteration += 1) {
       const rendered = await processNextRenderJob();
       if (rendered) {
+        continue;
+      }
+
+      const generatedBackground = await processNextBackgroundGenerationJob();
+      if (generatedBackground) {
         continue;
       }
 
