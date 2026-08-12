@@ -2,14 +2,16 @@ import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 
 import { adminEnv, hasSupabaseEnv } from './env';
+import { canManageContent, canManageProducts, type UserRole } from './roles';
 
 export type AdminRouteContext = {
   supabase: SupabaseClient;
   user: User;
   email: string;
+  role: UserRole;
 };
 
-export async function getAdminRouteContext(request: NextRequest): Promise<AdminRouteContext> {
+async function getStaffContext(request: NextRequest): Promise<AdminRouteContext> {
   if (!hasSupabaseEnv()) {
     throw new Error('Supabase environment variables are missing.');
   }
@@ -48,13 +50,33 @@ export async function getAdminRouteContext(request: NextRequest): Promise<AdminR
     .eq('id', user.id)
     .maybeSingle();
 
-  if (profileResult.error || profileResult.data?.role !== 'admin') {
+  const role = (profileResult.data?.role || '') as UserRole;
+  if (profileResult.error || !role) {
     throw new Error('Admin role is required.');
   }
 
   return {
     supabase,
     user,
-    email: profileResult.data.email || user.email || '',
+    email: profileResult.data?.email || user.email || '',
+    role,
   };
+}
+
+/** 콘텐츠 파이프라인 API: admin | operator */
+export async function getAdminRouteContext(request: NextRequest): Promise<AdminRouteContext> {
+  const ctx = await getStaffContext(request);
+  if (!canManageContent(ctx.role)) {
+    throw new Error('Admin role is required.');
+  }
+  return ctx;
+}
+
+/** 상품 API: admin | operator | seller */
+export async function getProductAdminRouteContext(request: NextRequest): Promise<AdminRouteContext> {
+  const ctx = await getStaffContext(request);
+  if (!canManageProducts(ctx.role)) {
+    throw new Error('Product manager role is required.');
+  }
+  return ctx;
 }

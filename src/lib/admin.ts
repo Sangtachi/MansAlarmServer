@@ -5,11 +5,24 @@ import { useRouter } from 'next/navigation';
 
 import { AdminSessionState } from './types';
 import { getSupabaseBrowserClient } from './supabase';
+import {
+  canAccessStaffConsole,
+  canManageContent,
+  canManageProducts,
+  defaultLandingPath,
+  type UserRole,
+} from './roles';
+
+export type StaffSessionState =
+  | AdminSessionState
+  | { status: 'ready'; email: string; role: UserRole };
 
 export function useAdminSession() {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const [state, setState] = useState<AdminSessionState>(() => (supabase ? { status: 'loading' } : { status: 'missing' }));
+  const [state, setState] = useState<StaffSessionState>(() =>
+    supabase ? { status: 'loading' } : { status: 'missing' }
+  );
 
   const refresh = useCallback(async () => {
     if (!supabase) {
@@ -31,7 +44,9 @@ export function useAdminSession() {
       .eq('id', session.user.id)
       .maybeSingle();
 
-    if (error || profile?.role !== 'admin') {
+    const role = (profile?.role || null) as UserRole | null;
+
+    if (error || !canAccessStaffConsole(role)) {
       setState({
         status: 'forbidden',
         email: session.user.email ?? '',
@@ -41,7 +56,8 @@ export function useAdminSession() {
 
     setState({
       status: 'ready',
-      email: profile.email || session.user.email || '',
+      email: profile?.email || session.user.email || '',
+      role: role as UserRole,
     });
   }, [supabase]);
 
@@ -68,10 +84,16 @@ export function useAdminSession() {
     router.replace('/login');
   }, [router, supabase]);
 
+  const role = state.status === 'ready' ? state.role : null;
+
   return {
     supabase,
     state,
     refresh,
     signOut,
+    role,
+    canManageContent: canManageContent(role),
+    canManageProducts: canManageProducts(role),
+    landingPath: defaultLandingPath(role),
   };
 }

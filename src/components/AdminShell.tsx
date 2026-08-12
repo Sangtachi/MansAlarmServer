@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 
 import { AdminSessionState } from '@/lib/types';
+import { USER_ROLE_LABELS, canManageContent, canManageProducts, type UserRole } from '@/lib/roles';
 
 type AdminShellProps = {
   title: string;
@@ -15,15 +16,14 @@ type AdminShellProps = {
 };
 
 const NAV_ITEMS = [
-  { href: '/manual', label: '수동 미션 관리' },
-  { href: '/content', label: '콘텐츠 파이프라인' },
-  { href: '/members', label: '회원 리드' },
-  { href: '/products', label: '상품 관리' },
-  { href: '/community', label: '커뮤니티 관리' },
+  { href: '/manual', label: '수동 미션 관리', needs: 'content' as const },
+  { href: '/content', label: '콘텐츠 파이프라인', needs: 'content' as const },
+  { href: '/members', label: '회원 리드', needs: 'content' as const },
+  { href: '/products', label: '상품 관리', needs: 'products' as const },
+  { href: '/community', label: '커뮤니티 관리', needs: 'content' as const },
 ] as const;
 
 function renderStateMessage(state: AdminSessionState, currentPath: string) {
-  // 상품 및 커뮤니티 페이지는 일반 회원/방문자도 볼 수 있도록 허용
   if (currentPath === '/products' || currentPath === '/community') {
     return null;
   }
@@ -31,8 +31,8 @@ function renderStateMessage(state: AdminSessionState, currentPath: string) {
   switch (state.status) {
     case 'loading':
       return {
-        title: '관리자 세션 확인 중',
-        body: 'Supabase 세션과 admin 권한을 확인하고 있습니다.',
+        title: '세션 확인 중',
+        body: 'Supabase 세션과 운영 권한을 확인하고 있습니다.',
       };
     case 'missing':
       return {
@@ -41,13 +41,13 @@ function renderStateMessage(state: AdminSessionState, currentPath: string) {
       };
     case 'forbidden':
       return {
-        title: '관리자 권한 없음',
-        body: `${state.email} 계정은 admin 역할이 아닙니다. Supabase의 profiles.role을 admin으로 올려야 합니다.`,
+        title: '운영 권한 없음',
+        body: `${state.email} 계정은 staff 역할이 아닙니다. profiles.role 을 admin/operator/seller 로 올려야 합니다.`,
       };
     case 'unauthenticated':
       return {
         title: '로그인 필요',
-        body: '관리자 계정으로 다시 로그인해야 합니다.',
+        body: '운영 계정으로 다시 로그인해야 합니다.',
       };
     default:
       return null;
@@ -63,6 +63,12 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   const stateMessage = renderStateMessage(sessionState, currentPath);
+  const role = sessionState.status === 'ready' ? (sessionState.role as UserRole | undefined) : undefined;
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (!role) return true;
+    if (item.needs === 'content') return canManageContent(role);
+    return canManageProducts(role);
+  });
 
   return (
     <div className="admin-shell">
@@ -76,7 +82,7 @@ export function AdminShell({
         </div>
 
         <nav className="nav-list">
-          {NAV_ITEMS.map((item) => (
+          {visibleNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -89,7 +95,9 @@ export function AdminShell({
         </nav>
 
         <div className="sidebar-footer">
-          <p className="sidebar-status-label">ADMIN</p>
+          <p className="sidebar-status-label">
+            {role ? USER_ROLE_LABELS[role] : 'STAFF'}
+          </p>
           <p className="sidebar-status-value">
             {sessionState.status === 'ready' ? sessionState.email : 'session pending'}
           </p>

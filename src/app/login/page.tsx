@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 
 import { hasSupabaseEnv } from '@/lib/env';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
+import { canAccessStaffConsole, defaultLandingPath, USER_ROLE_LABELS, type UserRole } from '@/lib/roles';
 
-const FORBIDDEN_MSG = '관리자만 이용할 수 있습니다.';
+const FORBIDDEN_MSG = '운영/판매 권한이 있는 계정만 이용할 수 있습니다. (일반 회원은 모바일 앱을 이용해 주세요)';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,8 +33,8 @@ export default function LoginPage() {
         .eq('id', data.session.user.id)
         .maybeSingle();
 
-      if (profile?.role === 'admin') {
-        router.replace('/content');
+      if (canAccessStaffConsole(profile?.role)) {
+        router.replace(defaultLandingPath(profile?.role));
         return;
       }
 
@@ -86,22 +87,23 @@ export default function LoginPage() {
       return;
     }
 
-    if (profile?.role !== 'admin') {
+    if (!canAccessStaffConsole(profile?.role)) {
       await supabase.auth.signOut();
       setMessage(FORBIDDEN_MSG);
       return;
     }
 
-    router.replace('/content');
+    router.replace(defaultLandingPath(profile?.role as UserRole));
   };
 
   return (
     <div className="login-page">
       <div className="login-card">
         <p className="page-kicker">MANSALARM SERVER</p>
-        <h1 className="login-title">관리자 운영 화면 로그인</h1>
+        <h1 className="login-title">운영 / 판매 로그인</h1>
         <p className="login-copy">
-          날짜별 오늘 문구와 회원 리드, 상품 상태를 관리하는 운영 화면입니다.
+          역할: {USER_ROLE_LABELS.admin} · {USER_ROLE_LABELS.operator} · {USER_ROLE_LABELS.seller}.
+          일반 회원은 모바일 앱에서 가입하세요.
         </p>
 
         {!hasSupabaseEnv() ? (

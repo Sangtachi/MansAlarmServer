@@ -17,6 +17,8 @@ type ManualDraft = {
   shortformVideoUrl: string;
   videoFile: File | null;
   posterFile: File | null;
+  /** 수정 시: 같은 미션을 추가로 게시할 날짜들 (원본 날짜는 유지) */
+  extraPublishDates: string[];
 };
 
 function getNextDate(rows: DailyContentRow[]): string {
@@ -36,6 +38,7 @@ function getInitialDraft(rows: DailyContentRow[] = []): ManualDraft {
     shortformVideoUrl: '',
     videoFile: null,
     posterFile: null,
+    extraPublishDates: [],
   };
 }
 
@@ -50,6 +53,7 @@ export default function ManualContentPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [extraDateInput, setExtraDateInput] = useState('');
 
   const loadRows = useCallback(async () => {
     if (!supabase || state.status !== 'ready') {
@@ -90,10 +94,11 @@ export default function ManualContentPage() {
       shortformVideoUrl: row.shortform_video_url || '',
       videoFile: null,
       posterFile: null,
+      extraPublishDates: [],
     });
+    setExtraDateInput('');
     setMessage(null);
     setDeleteConfirmId(null);
-    // Scroll to top to see the form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -101,6 +106,33 @@ export default function ManualContentPage() {
     setDraft(getInitialDraft(rows));
     setEditingId(null);
     setDeleteConfirmId(null);
+    setExtraDateInput('');
+  };
+
+  const addExtraPublishDate = () => {
+    const next = extraDateInput.trim();
+    if (!next) return;
+    if (next === draft.contentDate) {
+      setMessage('원본 날짜와 같은 날짜는 추가할 수 없습니다.');
+      return;
+    }
+    if (draft.extraPublishDates.includes(next)) {
+      setMessage('이미 추가된 날짜입니다.');
+      return;
+    }
+    setDraft((prev) => ({
+      ...prev,
+      extraPublishDates: [...prev.extraPublishDates, next].sort(),
+    }));
+    setExtraDateInput('');
+    setMessage(null);
+  };
+
+  const removeExtraPublishDate = (date: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      extraPublishDates: prev.extraPublishDates.filter((d) => d !== date),
+    }));
   };
 
   const uploadFile = async (file: File, folder: string, contentId: string) => {
@@ -135,9 +167,12 @@ export default function ManualContentPage() {
         const existing = rows.find((r) => r.content_date === draft.contentDate);
         contentId = existing?.id || null;
       }
+
+      const sourceRow = contentId ? rows.find((r) => r.id === contentId) : undefined;
       
       const payload: Partial<DailyContentRow> = {
-        content_date: draft.contentDate,
+        // 수정 중이면 원본 날짜 유지, 신규면 draft 날짜 사용
+        content_date: editingId ? (sourceRow?.content_date || draft.contentDate) : draft.contentDate,
         phrase: draft.phrase.trim(),
         sub_phrase: draft.subPhrase.trim(),
         description: draft.description.trim(),
@@ -157,6 +192,8 @@ export default function ManualContentPage() {
         payload.shortform_video_url = buildStoragePublicUrl(newVideoPath);
       } else if (draft.shortformVideoUrl) {
         payload.shortform_video_url = draft.shortformVideoUrl.trim();
+      } else if (sourceRow?.shortform_video_url) {
+        payload.shortform_video_url = sourceRow.shortform_video_url;
       } else {
         payload.shortform_video_url = null;
       }
@@ -165,12 +202,23 @@ export default function ManualContentPage() {
       if (draft.posterFile) {
         newPosterPath = await uploadFile(draft.posterFile, 'manual-posters', idForUpload);
         payload.poster_asset_path = newPosterPath;
+      } else if (sourceRow?.poster_asset_path) {
+        payload.poster_asset_path = sourceRow.poster_asset_path;
+      }
+
+      // 원본에서 보상/배경 필드도 복제에 사용
+      if (sourceRow) {
+        payload.reward_url = sourceRow.reward_url;
+        payload.reward_title = sourceRow.reward_title;
+        payload.reward_artist = sourceRow.reward_artist;
+        payload.reward_video_id = sourceRow.reward_video_id;
+        payload.background_asset_path = sourceRow.background_asset_path;
+        payload.app_playback_url = sourceRow.app_playback_url;
       }
 
       let savedData;
       
       if (contentId) {
-        // 기존 데이터 수정 (upsert 시 NOT NULL 제약조건 우회 방지)
         const { data, error: updateError } = await supabase
           .from('daily_contents')
           .update(payload)
@@ -183,7 +231,6 @@ export default function ManualContentPage() {
         }
         savedData = data;
       } else {
-        // 새 데이터 등록
         payload.archetype = 'knight';
         payload.generator_provider = 'veo';
         
@@ -199,7 +246,52 @@ export default function ManualContentPage() {
         savedData = data;
       }
 
-      setMessage(contentId ? '콘텐츠가 수정되었습니다.' : '새 콘텐츠가 등록되었습니다.');
+      // 추가 날짜에 같은 미션 복제 (예: 08-03 유지 + 08-07에도 게시)
+      const extraDates = draft.extraPublishDates.filter(
+        (d) => d && d !== payload.content_date
+      );
+      const copiedDates: string[] = [];
+      const skippedDates: string[] = [];
+
+      for (const extraDate of extraDates) {
+        const existingExtra = rows.find((r) => r.content_date === extraDate);
+        const copyPayload: Partial<DailyContentRow> = {
+          ...payload,
+          content_date: extraDate,
+          archetype: sourceRow?.archetype || 'knight',
+          generator_provider: sourceRow?.generator_provider || 'veo',
+        };
+
+        if (existingExtra) {
+          const { error } = await supabase
+            .from('daily_contents')
+            .update(copyPayload)
+            .eq('id', existingExtra.id);
+          if (error) {
+            skippedDates.push(`${extraDate}(${error.message})`);
+            continue;
+          }
+          copiedDates.push(extraDate);
+        } else {
+          const { error } = await supabase
+            .from('daily_contents')
+            .insert(copyPayload);
+          if (error) {
+            skippedDates.push(`${extraDate}(${error.message})`);
+            continue;
+          }
+          copiedDates.push(extraDate);
+        }
+      }
+
+      let msg = contentId ? '콘텐츠가 수정되었습니다.' : '새 콘텐츠가 등록되었습니다.';
+      if (copiedDates.length > 0) {
+        msg += ` 추가 날짜에도 게시됨: ${copiedDates.join(', ')}`;
+      }
+      if (skippedDates.length > 0) {
+        msg += ` / 실패: ${skippedDates.join(', ')}`;
+      }
+      setMessage(msg);
       resetDraft();
       await loadRows();
     } catch (error: any) {
@@ -281,7 +373,51 @@ export default function ManualContentPage() {
                   onChange={(e) => setDraft({ ...draft, contentDate: e.target.value })}
                   disabled={!!editingId}
                 />
+                {editingId ? (
+                  <span className="upload-hint">원본 날짜는 유지됩니다. 아래에 추가 날짜를 넣으면 같은 미션이 그 날짜에도 게시됩니다.</span>
+                ) : null}
               </label>
+
+              <div className="field-block field-block-full">
+                <span className="field-label">
+                  추가 게시 날짜 {editingId ? '(원본 유지 + 다른 날짜에도 동일 미션)' : '(선택: 여러 날짜에 동시 게시)'}
+                </span>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={extraDateInput}
+                    onChange={(e) => setExtraDateInput(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={addExtraPublishDate}
+                    disabled={busy || !extraDateInput}
+                  >
+                    날짜 추가
+                  </button>
+                </div>
+                {draft.extraPublishDates.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    {draft.extraPublishDates.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => removeExtraPublishDate(date)}
+                        title="클릭하면 제거"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        {date} ×
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="upload-hint">예: 08-03 미션을 편집한 뒤 08-07을 추가하면 두 날짜 모두에 같은 영상이 나갑니다.</span>
+                )}
+              </div>
 
               <label className="field-block field-block-full">
                 <span className="field-label">메인 문구 (알람 해제 정답)</span>
@@ -358,7 +494,7 @@ export default function ManualContentPage() {
                 onClick={handleSave}
                 disabled={busy}
               >
-                {busy ? '저장 중...' : (editingId ? '수정 내용 즉시 배포' : '새 미션 즉시 배포')}
+                {busy ? '저장 중...' : (editingId ? '수정·추가 날짜 즉시 배포' : '새 미션 즉시 배포')}
               </button>
               {editingId && (
                 <button type="button" className="ghost-button" onClick={resetDraft} disabled={busy}>

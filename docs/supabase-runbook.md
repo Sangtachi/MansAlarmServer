@@ -8,14 +8,28 @@ This runbook sets up the MansAlarm database, storage, admin bootstrap, and basel
 
 Run the SQL in this order:
 
-1. `20260402144500_initial_schema.sql`
+1. `20260402144500_initial_schema.sql` (기존 profiles 등 — 문서상, 리포에 없을 수 있음)
 2. `20260403093000_daily_content_phrase_reward_fields.sql`
 3. `20260403183000_daily_contents_reward_url.sql`
 4. `20260409163000_shortform_pipeline.sql`
+5. **`20260811140000_profiles_roles_mission_completions.sql`** ← 역할 확장 + 미션 기록 테이블
 
 After migrations, run:
 
-5. `seed.sql`
+6. `seed.sql`
+
+### 20260811 변경 요약
+
+| 대상 | 방식 | 내용 |
+|------|------|------|
+| `public.profiles` | **ALTER 기존** | `nickname`, `job_tag`, role=`member\|admin\|operator\|seller` |
+| `public.mission_completions` | **NEW 테이블** | 회원 미션 성공 일지 (`user_id` + `mission_date`) |
+
+역할 승격: `supabase/manual/promote-user-role.sql`
+
+- `admin` / `operator` → 서버 콘텐츠 운영
+- `seller` → 상품 관리 (`/products`)
+- `member` → 모바일 앱 일반 회원 (미션 기록 클라우드 동기화)
 
 ## What these migrations create
 

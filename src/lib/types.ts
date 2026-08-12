@@ -187,7 +187,7 @@ export type AdminSessionState =
   | { status: 'missing' }
   | { status: 'unauthenticated' }
   | { status: 'forbidden'; email: string }
-  | { status: 'ready'; email: string };
+  | { status: 'ready'; email: string; role?: string };
 
 export type SocialHealthResponse = {
   supabasePublicConfigured: boolean;
